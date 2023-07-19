@@ -1,0 +1,338 @@
+---
+title: 'Bike Rideshare Project'
+output:
+  html_document: default
+  pdf_document: default
+date: "8/8/2021"
+---
+
+The data downloaded from kaggle website from this [link](https://www.kaggle.com/datasets/mdmasumomarjashim/divvy-trips-data-20192020).
+The bike rideshare company believe that increasing the number of loyal customer is important for the company growth.  The purpose o this analysis is explore how causal riders use the bikes differently from loyal (subscriber) riders. Ultimately, the results of the data analysis will be used to help design a plan that encourages causal rider to become subscribers. 
+
+```{r Loading packages, warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(lubridate)
+
+```
+
+
+##Loading and isecting datasets
+```{r}
+Q2_2019 <- read.csv("Divvy_Trips_2019_Q2.csv",as.is=T) 
+Q3_2019 <- read.csv("Divvy_Trips_2019_Q3.csv",as.is=T) 
+Q4_2019 <- read.csv("Divvy_Trips_2019_Q4.csv",as.is=T) 
+Q1_2020 <- read.csv("Divvy_Trips_2020_Q1.csv",as.is=T)
+
+
+```
+
+There are discrepancies in column names and data type of some columns among the four datasets. Column names and data strucure of Divvy_Trips_2020_Q1 and will be adopted and applied to datasets. 
+
+## Data cleaning
+### Renaming some columns in datsets from 2019
+```{r}
+Q2_2019_new_col_names<- rename(Q2_2019,
+                               ride_id = X01...Rental.Details.Rental.ID,
+                               rideable_type = X01...Rental.Details.Bike.ID,
+                               started_at = X01...Rental.Details.Local.Start.Time,
+                               ended_at = X01...Rental.Details.Local.End.Time,
+                               start_station_name = X03...Rental.Start.Station.Name,
+                               start_station_id = X03...Rental.Start.Station.ID,
+                               end_station_name = X02...Rental.End.Station.Name,
+                               end_station_id = X02...Rental.End.Station.ID,
+                               member_casual = User.Type)
+
+Q3_2019_new_col_names <- rename(Q3_2019,
+                                ride_id = trip_id,
+                                rideable_type = bikeid,
+                                started_at = start_time,
+                                ended_at = end_time ,
+                                start_station_name = from_station_name ,
+                                start_station_id = from_station_id ,
+                                end_station_name = to_station_name ,
+                                end_station_id = to_station_id ,
+                                member_casual = usertype)
+
+
+Q4_2019_new_col_names <- rename(Q4_2019,
+                                ride_id = trip_id,
+                                rideable_type = bikeid,
+                                started_at = start_time,
+                                ended_at = end_time ,
+                                start_station_name = from_station_name ,
+                                start_station_id = from_station_id ,
+                                end_station_name = to_station_name ,
+                                end_station_id = to_station_id ,
+                                member_casual = usertype)
+
+```
+
+
+
+```{r}
+glimpse(Q2_2019_new_col_names)
+glimpse(Q3_2019_new_col_names)
+glimpse(Q4_2019_new_col_names)
+glimpse(Q1_2020)
+```
+
+
+### selecting the rquired columns from each dataset
+
+```{r}
+Q1_2020_v01 <- Q1_2020 %>%
+  select(c("ride_id","started_at","ended_at","rideable_type",
+           "start_station_id","start_station_name","end_station_id","end_station_name","member_casual"))
+
+Q2_2019_v01 <- Q2_2019_new_col_names %>%
+  select(c("ride_id","started_at","ended_at","rideable_type",
+           "start_station_id","start_station_name","end_station_id","end_station_name","member_casual"))
+
+Q3_2019_v01 <- Q3_2019_new_col_names %>%
+  select(c("ride_id","started_at","ended_at","rideable_type",
+           "start_station_id","start_station_name","end_station_id","end_station_name","member_casual"))
+
+Q4_2019_v01 <- Q4_2019_new_col_names %>%
+  select(c("ride_id","started_at","ended_at","rideable_type",
+           "start_station_id","start_station_name","end_station_id","end_station_name","member_casual"))
+```
+
+Now,  all columns needed for the analysis from all datasets have identical names. However, "trip_id" and "rideable_type" in 2019 datasets need to be converted to "character datatype to match 2020 dataset.
+
+```{r}
+Q2_2019_v02 <- mutate(Q2_2019_v01, ride_id = as.character(ride_id),
+                                rideable_type = as.character(rideable_type))
+                                
+Q3_2019_v02 <- mutate(Q3_2019_v01, ride_id = as.character(ride_id),
+                                rideable_type = as.character(rideable_type))
+Q4_2019_v02 <- mutate(Q4_2019_v01, ride_id = as.character(ride_id),
+                                rideable_type = as.character(rideable_type))
+
+
+Q1_2020_v02<-Q1_2020_v01
+
+```
+
+### Combining all datasets
+
+```{r}
+data_v01 <- bind_rows(Q2_2019_v02, Q3_2019_v02, Q4_2019_v02, Q1_2020_v02)
+
+glimpse(data_v01)
+```
+### Checking for duplicates
+
+```{r}
+length(unique(data_v01$ride_id)) == nrow(data_v01)
+```
+
+Return TRUE means no duplicate
+
+### Checking for missing values in the dataset
+
+```{r}
+apply(is.na(data_v01), 2, which) 
+```
+Columns "started_at" and "ended_at" will be used in following data analysis steps, both do not contain missing data. There are 3867362  missing records in  "end_station_id" column, so the "end_station_name" will be used instead if needed. 
+
+### Creating a new column to calculate trips duration in seconds.
+
+```{r}
+data_v02 <- data_v01 %>%
+  mutate(ride_duration=difftime(ended_at,started_at, units = "secs"))
+```
+
+
+Inspecting first rows of the dataset  
+```{r}
+
+head(data_v02)
+
+```
+
+
+```{r}
+min(data_v02$ride_duration)
+```
+
+There are some non valid time value less than 0. These will dropped
+
+```{r}
+data_v03 <- data_v02 %>%filter(ride_duration> 0)
+
+min(data_v03$ride_duration)
+```
+### Adding new columns for trips starting time in hours, days of the week and months
+
+```{r}
+data_v04 <- data_v03 %>%
+  mutate(hour= hour(started_at)) %>%
+  mutate(days= wday(started_at,lab= T,abbr = F))  %>%
+  mutate(month= month(started_at, lab= T,abbr = F))%>%
+  mutate(year= year(started_at))
+
+```
+
+```{r}
+glimpse(data_v04)
+
+```
+
+Finally, "member_casual" categorical variable defined differently in 2019 datasets (Subscriber/ Customer ) from  2020 dataset (member/casual). 
+
+```{r}
+ride_count <- data_v04 %>%group_by(member_casual) %>% 
+  summarise(number_of_rides = n())
+
+ride_count
+```
+
+
+Again will use 2020 format and Subscriber/ Customer  to member/casual.
+
+```{r}
+data_v04<- data_v04 %>% mutate(member_casual=  case_when(
+  member_casual == "member" ~ "member",   
+  member_casual =="casual" ~ "casual",
+  member_casual == "Customer" ~ "casual",  # replace customer with casual
+  member_casual == "Subscriber" ~ "member"))   # replace Subscriber with member
+
+
+ride_count <- data_v04 %>%group_by(member_casual) %>% 
+  summarise(number_of_rides = n())
+
+ride_count
+```
+
+
+## Data analysis and Visulaization
+
+### Some descriptive statistics
+Average trip duration based on customer type
+
+```{r}
+data_v04 %>%  group_by(member_casual) %>% 
+  summarize(mean_ride_duration=mean(ride_duration),
+            median_ride_duration=median(ride_duration),
+            minimum_ride_duration=min(ride_duration),
+            maximum_ride_duration=max(ride_duration))  
+```
+
+
+
+### Calculating and plotting number of rides groupped by customer type
+
+```{r}
+data_count<- data_v04 %>% 
+  group_by(member_casual) %>% 
+  count() %>% 
+  ungroup() %>% 
+  mutate(percent=`n`/sum(`n`)) %>% 
+  arrange(desc(member_casual))
+
+data_count
+data_count$label <- scales::percent(data_count$percent)
+ggplot(data=data_count)+
+  geom_bar(aes(x="", y=percent, fill=member_casual), stat="identity", width = 1)+
+  coord_polar("y", start=0)+
+  theme_void()+
+  geom_text(aes(x=1, y = cumsum(percent) - percent/2, label=label))
+
+```
+The subscribers (members) represent the majority of riders. 
+
+### Number of trips grouped by starting time of the trips in hour of the day and customer type (member/casual)
+```{r fig.width=11,fig.height=4}
+data_v04 %>% 
+  group_by(member_casual, hour) %>% 
+  summarise(number_of_rides = n()) %>% 
+  ggplot(aes(x = hour, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete(name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Hours")+ ylab("Number of Riders")
+
+```
+
+### Number of trips grouped by day of the week and customer type (member/casual)
+```{r fig.width=11,fig.height=4}
+data_v04 %>% 
+  group_by(member_casual, days) %>% 
+  summarise(number_of_rides = n()) %>% 
+  ggplot(aes(x = days, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete (name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Day of the week")+ ylab("Number of Riders")
+
+
+```
+
+### Number of trips grouped by months and customer type (member/casual)
+
+```{r, fig.width=11,fig.height=4}
+data_v04 %>% 
+  group_by(member_casual, month) %>% 
+  summarise(number_of_rides = n()) %>% 
+  ggplot(aes(x = month, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete (name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Month")+ ylab("Number of Riders")
+
+```
+Clearly the number of rides started to increase in in spring and peaked in summer time which parallels with the improvement of weather.The majority of riders are subscribers.
+
+### plotting average of rides duration grouped by starting time of the day and customer type (subscriber/casual)
+```{r fig.width=11,fig.height=4}
+data_v04 %>% 
+  mutate(hour = hour) %>% 
+  group_by(member_casual, hour) %>% 
+  summarise(average_duration = mean(ride_duration)) %>% 
+  ggplot(aes(x = hour, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete(name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Hours")+ ylab("Average Ride Duration in hours")
+
+```
+Above figure shows that causal riders tend to ride  longer time compared to subscribers throughout the day. 
+
+### Plotting average of rides duration grouped by the weekdays and  customer type (member/casual)
+```{r fig.width=11,fig.height=4}
+data_v04 %>% 
+  mutate(weekdays = days) %>% 
+  group_by(member_casual, weekdays) %>% 
+  summarise(average_duration = mean(ride_duration)) %>% 
+  ggplot(aes(x = weekdays, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete (name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Day")+ ylab("Average Ride Duration")
+
+
+```
+There is no pattern can be seen in average rides duration based on the day of the week.
+
+### Plotting average of rides duration grouped months and  customer type (member/casual)
+```{r, fig.width=11,fig.height=4}
+data_v04 %>% 
+  group_by(member_casual, month) %>% 
+  summarise(average_duration = mean(ride_duration)) %>% 
+  ggplot(aes(x = month, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") + scale_fill_discrete (name = "Riders Type", labels = c("Casual", "Subscriber"))+ 
+  xlab("Month")+ ylab("Average Ride Duration")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
