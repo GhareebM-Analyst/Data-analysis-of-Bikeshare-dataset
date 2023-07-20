@@ -1,0 +1,2 @@
+# Data-analysis-of-Bikeshare-dataset-using-R
+The data downloaded from kaggle website from this link. The bike rideshare company believe that increasing the number of loyal customer is important for the company growth. The purpose o this analysis is explore how causal riders use the bikes differently from loyal (subscriber) riders. Ultimately, the results of the data analysis will be used to help design a plan that encourages causal rider to become subscribers.
